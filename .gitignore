@@ -1,0 +1,30 @@
+# PlatformIO
+.pioenvs/
+.piolibdeps/
+.pioacdb/
+
+# Arduino IDE
+*.tmp
+*.log
+
+# Test build artifacts
+.test/
+*.o
+*.a
+*.so
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

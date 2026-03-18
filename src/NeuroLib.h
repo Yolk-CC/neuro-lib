@@ -72,20 +72,20 @@ public:
     void setDelimiter(char delimiter);
     
 private:
-    float _sampleRate;
-    uint16_t _numSamples;
-    uint8_t _numChannels;
-    HardwareSerial* _serialPort;
-    bool _initialized;
-    char _delimiter;
-    String _packetFormat;
+    float sample_rate_;
+    uint16_t num_samples_;
+    uint8_t num_channels_;
+    HardwareSerial* serial_port_;
+    bool initialized_;
+    char delimiter_;
+    String packet_format_;
     
-    ArduinoFFT<float>* _fft;
-    std::vector<float> _vReal;
-    std::vector<float> _vImag;
+    ArduinoFFT<float>* fft_;
+    std::vector<float> v_real_;
+    std::vector<float> v_imag_;
     
-    bool _parseSerialData(String& data, float* values, uint8_t numValues);
-    int _findSubstringIndex(const String& haystack, const String& needle);
+    bool parse_serial_data(String& data, float* values, uint8_t numValues);
+    int find_substring_index(const String& haystack, const String& needle);
 };
 
 #endif // NEUROLIB_H

@@ -2,16 +2,16 @@
 #include <string.h>
 
 NeuroLib::NeuroLib() 
-    : _sampleRate(DEFAULT_SAMPLE_RATE),
-      _numSamples(DEFAULT_NUM_SAMPLES),
-      _numChannels(DEFAULT_NUM_CHANNELS),
-      _serialPort(nullptr),
-      _initialized(false),
-      _delimiter(','),
-      _packetFormat(""),
-      _fft(nullptr) {
-    _vReal.resize(_numSamples);
-    _vImag.resize(_numSamples);
+    : sample_rate_(DEFAULT_SAMPLE_RATE),
+      num_samples_(DEFAULT_NUM_SAMPLES),
+      num_channels_(DEFAULT_NUM_CHANNELS),
+      serial_port_(nullptr),
+      initialized_(false),
+      delimiter_(','),
+      packet_format_(""),
+      fft_(nullptr) {
+    v_real_.resize(num_samples_);
+    v_imag_.resize(num_samples_);
 }
 
 NeuroLib::~NeuroLib() {
@@ -19,32 +19,32 @@ NeuroLib::~NeuroLib() {
 }
 
 bool NeuroLib::begin(int baudRate, HardwareSerial& serialPort) {
-    _serialPort = &serialPort;
-    _serialPort->begin(baudRate);
-    _initialized = true;
+    serial_port_ = &serialPort;
+    serial_port_->begin(baudRate);
+    initialized_ = true;
     
-    _fft = new ArduinoFFT<float>(_vReal.data(), _vImag.data(), _numSamples, _sampleRate);
+    fft_ = new ArduinoFFT<float>(v_real_.data(), v_imag_.data(), num_samples_, sample_rate_);
     
     return true;
 }
 
 void NeuroLib::end() {
-    if (_fft) {
-        delete _fft;
-        _fft = nullptr;
+    if (fft_) {
+        delete fft_;
+        fft_ = nullptr;
     }
-    if (_serialPort) {
-        _serialPort->end();
-        _serialPort = nullptr;
+    if (serial_port_) {
+        serial_port_->end();
+        serial_port_ = nullptr;
     }
-    _initialized = false;
+    initialized_ = false;
 }
 
 void NeuroLib::setSampleRate(float sampleRate) {
-    _sampleRate = sampleRate;
-    if (_fft && _initialized) {
-        delete _fft;
-        _fft = new ArduinoFFT<float>(_vReal.data(), _vImag.data(), _numSamples, _sampleRate);
+    sample_rate_ = sampleRate;
+    if (fft_ && initialized_) {
+        delete fft_;
+        fft_ = new ArduinoFFT<float>(v_real_.data(), v_imag_.data(), num_samples_, sample_rate_);
     }
 }
 
@@ -54,53 +54,53 @@ void NeuroLib::setNumSamples(uint16_t numSamples) {
         return;
     }
     
-    _numSamples = numSamples;
-    _vReal.resize(_numSamples);
-    _vImag.resize(_numSamples);
+    num_samples_ = numSamples;
+    v_real_.resize(num_samples_);
+    v_imag_.resize(num_samples_);
     
-    if (_fft && _initialized) {
-        delete _fft;
-        _fft = new ArduinoFFT<float>(_vReal.data(), _vImag.data(), _numSamples, _sampleRate);
+    if (fft_ && initialized_) {
+        delete fft_;
+        fft_ = new ArduinoFFT<float>(v_real_.data(), v_imag_.data(), num_samples_, sample_rate_);
     }
 }
 
 void NeuroLib::setNumChannels(uint8_t numChannels) {
-    _numChannels = numChannels;
+    num_channels_ = numChannels;
 }
 
 float NeuroLib::getSampleRate() const {
-    return _sampleRate;
+    return sample_rate_;
 }
 
 uint16_t NeuroLib::getNumSamples() const {
-    return _numSamples;
+    return num_samples_;
 }
 
 uint8_t NeuroLib::getNumChannels() const {
-    return _numChannels;
+    return num_channels_;
 }
 
 bool NeuroLib::dataAvailable() {
-    if (!_initialized || !_serialPort) {
+    if (!initialized_ || !serial_port_) {
         return false;
     }
-    return _serialPort->available() > 0;
+    return serial_port_->available() > 0;
 }
 
 EEGData NeuroLib::readData() {
     EEGData data = {0.0f, 0, 0};
     
-    if (!_initialized || !_serialPort) {
+    if (!initialized_ || !serial_port_) {
         return data;
     }
     
-    if (_serialPort->available()) {
-        String line = _serialPort->readStringUntil('\n');
+    if (serial_port_->available()) {
+        String line = serial_port_->readStringUntil('\n');
         line.trim();
         
         if (line.length() > 0) {
             float values[3] = {0};
-            if (_parseSerialData(line, values, 3)) {
+            if (parse_serial_data(line, values, 3)) {
                 data.value = values[0];
                 data.timestamp = millis();
                 data.channel = (uint8_t)values[1];
@@ -112,7 +112,7 @@ EEGData NeuroLib::readData() {
 }
 
 int NeuroLib::readChannel(uint8_t channel, float* buffer, int bufferSize) {
-    if (!_initialized || !_serialPort || !buffer) {
+    if (!initialized_ || !serial_port_ || !buffer) {
         return -1;
     }
     
@@ -121,13 +121,13 @@ int NeuroLib::readChannel(uint8_t channel, float* buffer, int bufferSize) {
     unsigned long timeout = 1000;
     
     while (count < bufferSize && (millis() - startTime) < timeout) {
-        if (_serialPort->available()) {
-            String line = _serialPort->readStringUntil('\n');
+        if (serial_port_->available()) {
+            String line = serial_port_->readStringUntil('\n');
             line.trim();
             
             if (line.length() > 0) {
                 float values[3] = {0};
-                if (_parseSerialData(line, values, 3)) {
+                if (parse_serial_data(line, values, 3)) {
                     if ((uint8_t)values[1] == channel) {
                         buffer[count++] = values[0];
                     }
@@ -141,23 +141,23 @@ int NeuroLib::readChannel(uint8_t channel, float* buffer, int bufferSize) {
 }
 
 void NeuroLib::computeFFT(float* input, FFTResult* output, uint16_t size) {
-    if (!input || !output || size > _numSamples) {
+    if (!input || !output || size > num_samples_) {
         return;
     }
     
     for (uint16_t i = 0; i < size; i++) {
-        _vReal[i] = input[i];
-        _vImag[i] = 0.0f;
+        v_real_[i] = input[i];
+        v_imag_[i] = 0.0f;
     }
     
-    _fft->windowize(size);
-    _fft->compute(FFT_FORWARD, size);
-    _fft->complexToMagnitude(size);
+    fft_->windowize(size);
+    fft_->compute(FFT_FORWARD, size);
+    fft_->complexToMagnitude(size);
     
     for (uint16_t i = 0; i < size / 2; i++) {
-        output[i].frequency = _fft->freqToIndex(i, _sampleRate, size);
-        output[i].magnitude = _vReal[i];
-        output[i].phase = atan2(_vImag[i], _vReal[i]);
+        output[i].frequency = fft_->freqToIndex(i, sample_rate_, size);
+        output[i].magnitude = v_real_[i];
+        output[i].phase = atan2(v_imag_[i], v_real_[i]);
     }
 }
 
@@ -228,19 +228,19 @@ float NeuroLib::getDominantFrequency(FFTResult* fft, uint16_t size) {
 }
 
 void NeuroLib::setPacketFormat(const String& format) {
-    _packetFormat = format;
+    packet_format_ = format;
 }
 
 void NeuroLib::setDelimiter(char delimiter) {
-    _delimiter = delimiter;
+    delimiter_ = delimiter;
 }
 
-bool NeuroLib::_parseSerialData(String& data, float* values, uint8_t numValues) {
+bool NeuroLib::parse_serial_data(String& data, float* values, uint8_t numValues) {
     int index = 0;
     int startIndex = 0;
     
     while (index < numValues && startIndex < data.length()) {
-        int endIndex = data.indexOf(_delimiter, startIndex);
+        int endIndex = data.indexOf(delimiter_, startIndex);
         if (endIndex == -1) {
             endIndex = data.length();
         }
@@ -258,7 +258,7 @@ bool NeuroLib::_parseSerialData(String& data, float* values, uint8_t numValues) 
     return (index >= numValues);
 }
 
-int NeuroLib::_findSubstringIndex(const String& haystack, const String& needle) {
+int NeuroLib::find_substring_index(const String& haystack, const String& needle) {
     if (needle.length() == 0) return -1;
     
     for (int i = 0; i <= haystack.length() - needle.length(); i++) {

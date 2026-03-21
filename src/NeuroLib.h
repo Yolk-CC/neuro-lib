@@ -3,7 +3,7 @@
 
 #include <Arduino.h>
 #include <HardwareSerial.h>
-#include <ArduinoFFT.h>
+#include <arduinoFFT.h>
 #include <vector>
 
 #define NEUROLIB_VERSION "1.0.0"

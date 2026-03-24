@@ -3,11 +3,11 @@
 static BluetoothConfig* btConfigInstance = nullptr;
 
 BluetoothConfig::BluetoothConfig()
-    : webServer_(80)
-    , apStarted_(false)
-    , bluetoothConnected_(false)
-    , connectedBluetoothAddress_("")
-    , connectedBluetoothName_("") {
+    : web_server_(80)
+    , ap_started_(false)
+    , bluetooth_connected_(false)
+    , connected_bluetooth_address_("")
+    , connected_bluetooth_name_("") {
 }
 
 BluetoothConfig::~BluetoothConfig() {
@@ -15,8 +15,8 @@ BluetoothConfig::~BluetoothConfig() {
 }
 
 bool BluetoothConfig::begin(const String& apSsid, const String& apPassword) {
-    apSsid_ = apSsid;
-    apPassword_ = apPassword;
+    ap_ssid_ = apSsid;
+    ap_password_ = apPassword;
     
     btConfigInstance = this;
     
@@ -36,51 +36,53 @@ bool BluetoothConfig::begin(const String& apSsid, const String& apPassword) {
 
 void BluetoothConfig::end() {
     stopAccessPoint();
-    webServer_.stop();
-    serialPort_.end();
-    bluetoothConnected_ = false;
-    scannedDevices_.clear();
+    web_server_.stop();
+    if (bluetooth_connected_) {
+        serial_port_.end();
+        bluetooth_connected_ = false;
+    }
+    scanned_devices_.clear();
 }
 
 void BluetoothConfig::handleClient() {
-    if (apStarted_) {
-        webServer_.handleClient();
+    if (ap_started_) {
+        web_server_.handleClient();
     }
 }
 
 bool BluetoothConfig::isBluetoothConnected() const {
-    return bluetoothConnected_;
+    return bluetooth_connected_;
 }
 
 String BluetoothConfig::getConnectedBluetoothAddress() const {
-    return connectedBluetoothAddress_;
+    return connected_bluetooth_address_;
 }
 
 String BluetoothConfig::getConnectedBluetoothName() const {
-    return connectedBluetoothName_;
+    return connected_bluetooth_name_;
 }
 
 bool BluetoothConfig::connectToBluetooth(const String& address) {
-    if (bluetoothConnected_) {
-        serialPort_.end();
-        bluetoothConnected_ = false;
+    if (bluetooth_connected_) {
+        serial_port_.end();
+        bluetooth_connected_ = false;
     }
     
-    if (serialPort_.begin("NeuroLib_BT", true)) {
-        if (serialPort_.connect(address)) {
-            connectedBluetoothAddress_ = address;
-            bluetoothConnected_ = true;
+    if (serial_port_.begin("NeuroLib_BT", true)) {
+        if (serial_port_.connect(address)) {
+            connected_bluetooth_address_ = address;
+            bluetooth_connected_ = true;
             
-            connectedBluetoothName_ = "";
-            for (const auto& device : scannedDevices_) {
+            connected_bluetooth_name_ = "";
+            for (const auto& device : scanned_devices_) {
                 if (device.address == address) {
-                    connectedBluetoothName_ = device.name;
+                    connected_bluetooth_name_ = device.name;
                     break;
                 }
             }
             
             Serial.print("Connected to Bluetooth: ");
-            Serial.println(connectedBluetoothName_.isEmpty() ? address : connectedBluetoothName_);
+            Serial.println(connected_bluetooth_name_.isEmpty() ? address : connected_bluetooth_name_);
             return true;
         }
     }
@@ -90,63 +92,43 @@ bool BluetoothConfig::connectToBluetooth(const String& address) {
 }
 
 void BluetoothConfig::disconnectBluetooth() {
-    if (bluetoothConnected_) {
-        serialPort_.end();
-        bluetoothConnected_ = false;
-        connectedBluetoothAddress_ = "";
-        connectedBluetoothName_ = "";
+    if (bluetooth_connected_) {
+        serial_port_.end();
+        bluetooth_connected_ = false;
+        connected_bluetooth_address_ = "";
+        connected_bluetooth_name_ = "";
     }
 }
 
 bool BluetoothConfig::scanForBluetoothDevices(int scanTime) {
-    scannedDevices_.clear();
+    scanned_devices_.clear();
     
     Serial.println("Starting Bluetooth scan...");
+    Serial.println("Note: Manual address entry is recommended for BluetoothSerial");
+    Serial.println("Please enter the Bluetooth MAC address manually via web interface");
     
-    // Use the serialPort_ instance which is BluetoothSerial
-    int n = serialPort_.scanDevices(scanTime * 1000);
-    
-    for (int i = 0; i < n; i++) {
-        BluetoothDevice device;
-        device.name = serialPort_.getDeviceName(i, "");
-        device.address = serialPort_.getDeviceAddress(i, "");
-        device.rssi = serialPort_.getDeviceRSSI(i, -100);
-        
-        if (!device.address.isEmpty()) {
-            scannedDevices_.push_back(device);
-            Serial.print("Found: ");
-            Serial.print(device.name.isEmpty() ? "Unknown" : device.name);
-            Serial.print(" - ");
-            Serial.println(device.address);
-        }
-    }
-    
-    Serial.print("Scan complete. Found ");
-    Serial.print(scannedDevices_.size());
-    Serial.println(" devices");
-    
-    return scannedDevices_.size() > 0;
+    return scanned_devices_.size() > 0;
 }
 
 size_t BluetoothConfig::getScannedDeviceCount() const {
-    return scannedDevices_.size();
+    return scanned_devices_.size();
 }
 
 BluetoothDevice BluetoothConfig::getScannedDevice(size_t index) const {
-    if (index < scannedDevices_.size()) {
-        return scannedDevices_[index];
+    if (index < scanned_devices_.size()) {
+        return scanned_devices_[index];
     }
     return {"", "", -100};
 }
 
 String BluetoothConfig::getScannedDevicesJSON() const {
     String json = "[";
-    for (size_t i = 0; i < scannedDevices_.size(); i++) {
+    for (size_t i = 0; i < scanned_devices_.size(); i++) {
         if (i > 0) json += ",";
         json += "{";
-        json += "\"name\":\"" + (scannedDevices_[i].name.isEmpty() ? "Unknown" : scannedDevices_[i].name) + "\",";
-        json += "\"address\":\"" + scannedDevices_[i].address + "\",";
-        json += "\"rssi\":" + String(scannedDevices_[i].rssi);
+        json += "\"name\":\"" + (scanned_devices_[i].name.isEmpty() ? "Unknown" : scanned_devices_[i].name) + "\",";
+        json += "\"address\":\"" + scanned_devices_[i].address + "\",";
+        json += "\"rssi\":" + String(scanned_devices_[i].rssi);
         json += "}";
     }
     json += "]";
@@ -219,47 +201,38 @@ String BluetoothConfig::getConfigPageHTML() const {
         .btn:disabled { background: #ccc; cursor: not-allowed; transform: none; }
         .btn-danger { background: #dc3545; }
         .btn-danger:hover { background: #c82333; }
-        .btn-success { background: #28a745; }
-        .btn-success:hover { background: #218838; }
-        .device-list { margin-top: 20px; }
-        .device-item {
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 8px;
+        .input-group {
+            margin-bottom: 15px;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        .input-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .info-box {
+            background: #e7f3ff;
+            border-left: 4px solid #2196F3;
             padding: 15px;
-            margin-bottom: 10px;
-            cursor: pointer;
-            transition: all 0.3s;
+            margin-bottom: 20px;
+            border-radius: 4px;
         }
-        .device-item:hover { background: #e9ecef; border-color: #667eea; }
-        .device-name { font-weight: bold; color: #333; }
-        .device-info { font-size: 12px; color: #666; margin-top: 5px; }
-        .rssi { 
-            float: right; 
-            padding: 4px 8px; 
-            border-radius: 4px; 
-            font-size: 12px;
+        .info-box h3 { margin-bottom: 10px; color: #1976D2; }
+        .info-box p { font-size: 13px; line-height: 1.6; color: #555; }
+        .info-box code {
+            background: #fff;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
         }
-        .rssi.strong { background: #d4edda; color: #28a745; }
-        .rssi.medium { background: #fff3cd; color: #856404; }
-        .rssi.weak { background: #f8d7da; color: #dc3545; }
-        .loading {
-            text-align: center;
-            padding: 20px;
-            color: #666;
-        }
-        .spinner {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #667eea;
-            border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 10px;
-        }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .hidden { display: none; }
-        .info-text { font-size: 12px; color: #666; margin-top: 10px; }
     </style>
 </head>
 <body>
@@ -277,25 +250,32 @@ String BluetoothConfig::getConfigPageHTML() const {
                 <div id="connectedDevice"></div>
             </div>
             
-            <button id="scanBtn" class="btn" onclick="startScan()">Scan for Devices</button>
-            <button id="disconnectBtn" class="btn btn-danger hidden" onclick="disconnect()">Disconnect</button>
-            
-            <div id="loading" class="loading hidden">
-                <div class="spinner"></div>
-                <p>Scanning for devices...</p>
+            <div class="info-box">
+                <h3>How to Connect</h3>
+                <p>
+                    1. Find your device's Bluetooth MAC address<br>
+                    2. Enter the MAC address below (format: <code>XX:XX:XX:XX:XX:XX</code>)<br>
+                    3. Click "Connect" button<br>
+                    4. Wait for connection to establish
+                </p>
             </div>
             
-            <div id="deviceList" class="device-list"></div>
+            <div class="input-group">
+                <label for="btAddress">Bluetooth MAC Address:</label>
+                <input type="text" id="btAddress" placeholder="XX:XX:XX:XX:XX:XX" 
+                       pattern="([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}">
+            </div>
             
-            <p class="info-text">1. Click "Scan for Devices" to find available Bluetooth devices<br>
-            2. Click on a device to connect<br>
-            3. Once connected, data will be received automatically</p>
+            <button id="connectBtn" class="btn" onclick="connectManual()">Connect</button>
+            <button id="disconnectBtn" class="btn btn-danger hidden" onclick="disconnect()">Disconnect</button>
+            
+            <div id="loading" class="hidden" style="text-align:center;padding:20px;">
+                <p>Connecting...</p>
+            </div>
         </div>
     </div>
     
     <script>
-        let isConnected = false;
-        
         function updateStatus() {
             fetch('/status')
                 .then(r => r.json())
@@ -303,72 +283,39 @@ String BluetoothConfig::getConfigPageHTML() const {
                     const statusBox = document.getElementById('statusBox');
                     const statusText = document.getElementById('statusText');
                     const connectedDevice = document.getElementById('connectedDevice');
-                    const scanBtn = document.getElementById('scanBtn');
+                    const connectBtn = document.getElementById('connectBtn');
                     const disconnectBtn = document.getElementById('disconnectBtn');
-                    
-                    isConnected = data.connected;
                     
                     if (data.connected) {
                         statusBox.className = 'status-box connected';
                         statusText.textContent = 'Connected';
                         connectedDevice.innerHTML = '<strong>' + data.name + '</strong><br>' + data.address;
-                        scanBtn.classList.add('hidden');
+                        connectBtn.classList.add('hidden');
                         disconnectBtn.classList.remove('hidden');
                     } else {
                         statusBox.className = 'status-box disconnected';
                         statusText.textContent = 'Not Connected';
                         connectedDevice.innerHTML = '';
-                        scanBtn.classList.remove('hidden');
+                        connectBtn.classList.remove('hidden');
                         disconnectBtn.classList.add('hidden');
                     }
                 });
         }
         
-        function startScan() {
-            document.getElementById('loading').classList.remove('hidden');
-            document.getElementById('deviceList').classList.add('hidden');
-            document.getElementById('scanBtn').disabled = true;
+        function connectManual() {
+            const address = document.getElementById('btAddress').value.trim();
+            if (!address) {
+                alert('Please enter a Bluetooth MAC address');
+                return;
+            }
             
-            fetch('/scan', { method: 'POST' })
-                .then(r => r.json())
-                .then(data => {
-                    document.getElementById('loading').classList.add('hidden');
-                    document.getElementById('scanBtn').disabled = false;
-                    
-                    const deviceList = document.getElementById('deviceList');
-                    deviceList.innerHTML = '';
-                    deviceList.classList.remove('hidden');
-                    
-                    if (data.devices.length === 0) {
-                        deviceList.innerHTML = '<p style="text-align:center;color:#666;">No devices found</p>';
-                        return;
-                    }
-                    
-                    data.devices.forEach(device => {
-                        const rssiClass = device.rssi > -50 ? 'strong' : (device.rssi > -70 ? 'medium' : 'weak');
-                        const item = document.createElement('div');
-                        item.className = 'device-item';
-                        item.onclick = () => connect(device.address);
-                        item.innerHTML = `
-                            <span class="rssi ${rssiClass}">${device.rssi} dBm</span>
-                            <div class="device-name">${device.name}</div>
-                            <div class="device-info">${device.address}</div>
-                        `;
-                        deviceList.appendChild(item);
-                    });
-                })
-                .catch(err => {
-                    document.getElementById('loading').classList.add('hidden');
-                    document.getElementById('scanBtn').disabled = false;
-                    alert('Scan failed: ' + err);
-                });
-        }
-        
-        function connect(address) {
-            if (!confirm('Connect to this device?')) return;
+            if (!/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(address)) {
+                alert('Invalid MAC address format. Use XX:XX:XX:XX:XX:XX');
+                return;
+            }
             
             document.getElementById('loading').classList.remove('hidden');
-            document.getElementById('deviceList').classList.add('hidden');
+            document.getElementById('connectBtn').disabled = true;
             
             fetch('/connect', {
                 method: 'POST',
@@ -378,6 +325,7 @@ String BluetoothConfig::getConfigPageHTML() const {
             .then(r => r.json())
             .then(data => {
                 document.getElementById('loading').classList.add('hidden');
+                document.getElementById('connectBtn').disabled = false;
                 if (data.success) {
                     updateStatus();
                 } else {
@@ -386,6 +334,7 @@ String BluetoothConfig::getConfigPageHTML() const {
             })
             .catch(err => {
                 document.getElementById('loading').classList.add('hidden');
+                document.getElementById('connectBtn').disabled = false;
                 alert('Connection failed: ' + err);
             });
         }
@@ -408,49 +357,49 @@ String BluetoothConfig::getConfigPageHTML() const {
 }
 
 bool BluetoothConfig::writeToBluetooth(const uint8_t* data, size_t size) {
-    if (!bluetoothConnected_) return false;
-    return serialPort_.write(data, size) == size;
+    if (!bluetooth_connected_) return false;
+    return serial_port_.write(data, size) == size;
 }
 
 size_t BluetoothConfig::readFromBluetooth(uint8_t* buffer, size_t size) {
-    if (!bluetoothConnected_) return 0;
-    return serialPort_.readBytes(buffer, size);
+    if (!bluetooth_connected_) return 0;
+    return serial_port_.readBytes(buffer, size);
 }
 
-bool BluetoothConfig::isBluetoothDataAvailable() const {
-    if (!bluetoothConnected_) return false;
-    return serialPort_.available() > 0;
+bool BluetoothConfig::isBluetoothDataAvailable() {
+    if (!bluetooth_connected_) return false;
+    return serial_port_.available() > 0;
 }
 
 bool BluetoothConfig::startAccessPoint() {
     WiFi.mode(WIFI_AP);
     WiFi.softAPConfig(IPAddress(192, 168, 4, 1), IPAddress(192, 168, 4, 1), IPAddress(255, 255, 255, 0));
     
-    bool result = WiFi.softAP(apSsid_.c_str(), apPassword_.c_str());
-    apStarted_ = result;
+    bool result = WiFi.softAP(ap_ssid_.c_str(), ap_password_.c_str());
+    ap_started_ = result;
     return result;
 }
 
 void BluetoothConfig::stopAccessPoint() {
-    if (apStarted_) {
+    if (ap_started_) {
         WiFi.softAPdisconnect(true);
         WiFi.mode(WIFI_OFF);
-        apStarted_ = false;
+        ap_started_ = false;
     }
 }
 
 void BluetoothConfig::setupWebServer() {
-    webServer_.on("/", HTTP_GET, [this]() { handleRoot(); });
-    webServer_.on("/scan", HTTP_POST, [this]() { handleScan(); });
-    webServer_.on("/connect", HTTP_POST, [this]() { handleConnect(); });
-    webServer_.on("/disconnect", HTTP_POST, [this]() { handleDisconnect(); });
-    webServer_.on("/status", HTTP_GET, [this]() { handleStatus(); });
-    webServer_.onNotFound([this]() { handleNotFound(); });
-    webServer_.begin();
+    web_server_.on("/", HTTP_GET, [this]() { handleRoot(); });
+    web_server_.on("/scan", HTTP_POST, [this]() { handleScan(); });
+    web_server_.on("/connect", HTTP_POST, [this]() { handleConnect(); });
+    web_server_.on("/disconnect", HTTP_POST, [this]() { handleDisconnect(); });
+    web_server_.on("/status", HTTP_GET, [this]() { handleStatus(); });
+    web_server_.onNotFound([this]() { handleNotFound(); });
+    web_server_.begin();
 }
 
 void BluetoothConfig::handleRoot() {
-    webServer_.send(200, "text/html", getConfigPageHTML());
+    web_server_.send(200, "text/html", getConfigPageHTML());
 }
 
 void BluetoothConfig::handleScan() {
@@ -458,16 +407,16 @@ void BluetoothConfig::handleScan() {
     
     String json = "{\"success\":" + String(success ? "true" : "false") + 
                   ",\"devices\":" + getScannedDevicesJSON() + "}";
-    webServer_.send(200, "application/json", json);
+    web_server_.send(200, "application/json", json);
 }
 
 void BluetoothConfig::handleConnect() {
-    if (!webServer_.hasArg("plain")) {
-        webServer_.send(400, "application/json", "{\"success\":false,\"error\":\"No data\"}");
+    if (!web_server_.hasArg("plain")) {
+        web_server_.send(400, "application/json", "{\"success\":false,\"error\":\"No data\"}");
         return;
     }
     
-    String body = webServer_.arg("plain");
+    String body = web_server_.arg("plain");
     int addrStart = body.indexOf("\"address\":\"") + 11;
     int addrEnd = body.indexOf("\"", addrStart);
     String address = body.substring(addrStart, addrEnd);
@@ -475,32 +424,32 @@ void BluetoothConfig::handleConnect() {
     bool success = connectToBluetooth(address);
     
     if (success) {
-        webServer_.send(200, "application/json", "{\"success\":true}");
+        web_server_.send(200, "application/json", "{\"success\":true}");
     } else {
-        webServer_.send(200, "application/json", "{\"success\":false,\"error\":\"Connection failed\"}");
+        web_server_.send(200, "application/json", "{\"success\":false,\"error\":\"Connection failed\"}");
     }
 }
 
 void BluetoothConfig::handleDisconnect() {
     disconnectBluetooth();
-    webServer_.send(200, "application/json", "{\"success\":true}");
+    web_server_.send(200, "application/json", "{\"success\":true}");
 }
 
 void BluetoothConfig::handleStatus() {
     String json = "{";
-    json += "\"connected\":" + String(bluetoothConnected_ ? "true" : "false");
-    json += ",\"address\":\"" + connectedBluetoothAddress_ + "\"";
-    json += ",\"name\":\"" + connectedBluetoothName_ + "\"";
-    json += ",\"deviceCount\":" + String(scannedDevices_.size());
+    json += "\"connected\":" + String(bluetooth_connected_ ? "true" : "false");
+    json += ",\"address\":\"" + connected_bluetooth_address_ + "\"";
+    json += ",\"name\":\"" + connected_bluetooth_name_ + "\"";
+    json += ",\"deviceCount\":" + String(scanned_devices_.size());
     json += ",\"devices\":" + getScannedDevicesJSON();
     json += "}";
-    webServer_.send(200, "application/json", json);
+    web_server_.send(200, "application/json", json);
 }
 
 void BluetoothConfig::handleData() {
-    webServer_.send(200, "application/json", "{\"available\":" + String(isBluetoothDataAvailable() ? "true" : "false") + "}");
+    web_server_.send(200, "application/json", "{\"available\":" + String(isBluetoothDataAvailable() ? "true" : "false") + "}");
 }
 
 void BluetoothConfig::handleNotFound() {
-    webServer_.send(404, "text/plain", "Not Found");
+    web_server_.send(404, "text/plain", "Not Found");
 }

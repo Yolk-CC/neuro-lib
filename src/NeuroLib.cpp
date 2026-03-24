@@ -150,12 +150,12 @@ void NeuroLib::computeFFT(float* input, FFTResult* output, uint16_t size) {
         v_imag_[i] = 0.0f;
     }
     
-    fft_->windowize(size);
-    fft_->compute(FFT_FORWARD, size);
-    fft_->complexToMagnitude(size);
+    fft_->windowing(FFT_WIN_TYP_HAMMING, FFT_FORWARD);
+    fft_->compute(FFT_FORWARD);
+    fft_->complexToMagnitude();
     
     for (uint16_t i = 0; i < size / 2; i++) {
-        output[i].frequency = fft_->freqToIndex(i, sample_rate_, size);
+        output[i].frequency = (i * sample_rate_) / size;
         output[i].magnitude = v_real_[i];
         output[i].phase = atan2(v_imag_[i], v_real_[i]);
     }

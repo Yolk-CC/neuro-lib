@@ -44,21 +44,21 @@ public:
     
     bool writeToBluetooth(const uint8_t* data, size_t size);
     size_t readFromBluetooth(uint8_t* buffer, size_t size);
-    bool isBluetoothDataAvailable() const;
+    bool isBluetoothDataAvailable();
     
 private:
-    WebServer webServer_;
-    BluetoothSerial serialPort_;
+    WebServer web_server_;
+    BluetoothSerial serial_port_;
     
-    bool apStarted_;
-    bool bluetoothConnected_;
-    String connectedBluetoothAddress_;
-    String connectedBluetoothName_;
+    bool ap_started_;
+    bool bluetooth_connected_;
+    String connected_bluetooth_address_;
+    String connected_bluetooth_name_;
     
-    std::vector<BluetoothDevice> scannedDevices_;
+    std::vector<BluetoothDevice> scanned_devices_;
     
-    String apSsid_;
-    String apPassword_;
+    String ap_ssid_;
+    String ap_password_;
     
     void setupWebServer();
     void handleRoot();
